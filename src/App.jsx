@@ -48,16 +48,30 @@ function App() {
 
   // Socket Connection setup
   useEffect(() => {
-    // Connect to dynamic socket URL matching the current environment
+    // Only connect WebSocket if user is logged in
+    if (!user) return;
+
+    // Vercel serverless functions do not maintain persistent WebSockets.
+    // If deployed on Vercel and not on a dedicated server or localhost, fallback gracefully.
+    const isVercelHost = SOCKET_URL && SOCKET_URL.includes('vercel.app');
+
     const newSocket = io(SOCKET_URL || 'http://localhost:3000', {
-      transports: ['polling', 'websocket'],
+      transports: isVercelHost ? ['websocket'] : ['polling', 'websocket'],
       autoConnect: true,
-      reconnectionAttempts: 5
+      reconnectionAttempts: 3,
+      timeout: 5000
     });
+
+    newSocket.on('connect_error', (err) => {
+      // Suppress spam in console if serverless host doesn't support persistent WebSockets
+      console.warn('Real-time sync notice (WebSockets offline on serverless host):', err.message);
+    });
+
     setSocket(newSocket);
 
     return () => newSocket.close();
-  }, []);
+  }, [user]);
+
 
 
   // Fetch patient list
