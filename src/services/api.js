@@ -1,45 +1,26 @@
 import axios from 'axios';
 
 // Helper function to safely get and validate the API Base URL
+// By default, use relative '/api' which is transparently proxied by Vercel / Vite
 const getApiBaseUrl = () => {
-  const envMode =import.meta.env.API_MODE;
+  const envMode = import.meta.env.API_MODE;
   const isDev = import.meta.env.DEV;
 
-  const localUrl =  import.meta.env.API_BASE_URL_LOCAL;
-  const prodUrl =  import.meta.env.API_BASE_URL_PROD;
+  // If explicit absolute URL is supplied, use it; otherwise use relative '/api'
+  const customProd = import.meta.env.API_BASE_URL_PROD;
+  const customLocal = import.meta.env.API_BASE_URL_LOCAL;
 
-  let targetUrl;
-  if (envMode === 'local') {
-    targetUrl = localUrl;
-  } else if (envMode === 'prod') {
-    targetUrl = prodUrl;
-  } else {
-    // Default dynamic switching based on environment build target
-    targetUrl = isDev ? localUrl : prodUrl;
-  }
+  if (envMode === 'local' && customLocal) return customLocal.replace(/\/$/, '');
+  if (envMode === 'prod' && customProd) return customProd.replace(/\/$/, '');
 
-  // Ensure string format and fallback if empty/undefined
-  const finalString = String(targetUrl || (isDev ? localUrl : prodUrl)).trim();
-
-  // Security measure: Ensure valid URL structure & HTTPS in production
-  try {
-    const parsedUrl = new URL(finalString);
-    if (import.meta.env.PROD && parsedUrl.protocol !== 'https:') {
-      console.warn('Security Warning: Production API base URL must use HTTPS. Falling back to default secure endpoint.');
-      return prodUrl;
-    }
-    return parsedUrl.toString().replace(/\/$/, '');
-  } catch (e) {
-    console.error('Invalid API_BASE_URL provided in environment. Falling back to default.', e);
-    return isDev ? localUrl : prodUrl;
-  }
+  // Default: clean relative path (masks backend domain completely from console/errors)
+  return '/api';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
 
 // Socket server URL (base domain without /api path)
-export const SOCKET_URL = import.meta.env.API_SOCK_BASE_URL;
-
+export const SOCKET_URL = import.meta.env.API_SOCK_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3000' : 'https://dental-cabinet-backend.vercel.app');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -53,11 +34,9 @@ api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('accessToken');
     if (token) {
-      // Basic token validation (ensure string format and prevent header injection)
       if (typeof token === 'string' && /^[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$/.test(token)) {
         config.headers.Authorization = `Bearer ${token}`;
       } else {
-        // Clear corrupt token
         localStorage.removeItem('accessToken');
       }
     }
@@ -66,11 +45,27 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle 401 & 403 errors with automatic refresh token logic
+// Helper to sanitize any error message and remove any leaked server URLs
+const sanitizeError = (error) => {
+  if (!error) return error;
+  const backendRegex = /https?:\/\/[a-zA-Z0-9.-]*vercel\.app[^\s]*/gi;
+  if (error.message) {
+    error.message = error.message.replace(backendRegex, '/api');
+  }
+  if (error.response?.data?.message && typeof error.response.data.message === 'string') {
+    error.response.data.message = error.response.data.message.replace(backendRegex, '/api');
+  }
+  return error;
+};
+
+// Response interceptor to handle 401 & 403 errors and sanitize error messages
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // Sanitize any URL references in error
+    sanitizeError(error);
 
     // If 401/403 and token expired, attempt refresh once
     if (
@@ -94,12 +89,11 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return api(originalRequest);
         } catch (refreshErr) {
-          // Refresh token failed -> clear storage and trigger logout securely
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('user');
           window.location.reload();
-          return Promise.reject(refreshErr);
+          return Promise.reject(sanitizeError(refreshErr));
         }
       }
     }
@@ -108,3 +102,4 @@ api.interceptors.response.use(
 );
 
 export default api;
+
