@@ -1,23 +1,9 @@
 import axios from 'axios';
 
-// Helper function to safely get and validate the API Base URL
-// By default, use relative '/api' which is transparently proxied by Vercel / Vite
-const getApiBaseUrl = () => {
-  const envMode = import.meta.env.API_MODE;
-  const isDev = import.meta.env.DEV;
+// Clean relative '/api' URL proxied transparently by Vercel / Vite
+// The browser NEVER sees or communicates directly with the backend domain.
+export const API_BASE_URL = '/api';
 
-  // If explicit absolute URL is supplied, use it; otherwise use relative '/api'
-  const customProd = import.meta.env.API_BASE_URL_PROD;
-  const customLocal = import.meta.env.API_BASE_URL_LOCAL;
-
-  if (envMode === 'local' && customLocal) return customLocal.replace(/\/$/, '');
-  if (envMode === 'prod' && customProd) return customProd.replace(/\/$/, '');
-
-  // Default: clean relative path (masks backend domain completely from console/errors)
-  return '/api';
-};
-
-export const API_BASE_URL = getApiBaseUrl();
 
 // Socket server URL (base domain without /api path)
 export const SOCKET_URL = import.meta.env.API_SOCK_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3000' : 'https://dental-cabinet-backend.vercel.app');
