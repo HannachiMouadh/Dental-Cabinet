@@ -1,0 +1,105 @@
+import axios from 'axios';
+
+// Helper function to safely get and validate the API Base URL
+const getApiBaseUrl = () => {
+  const envMode = import.meta.env.VITE_API_MODE;
+  const isDev = import.meta.env.DEV;
+
+  let url;
+  if (envMode === 'local') {
+    url = import.meta.env.VITE_API_BASE_URL_LOCAL;
+  } else if (envMode === 'prod') {
+    url = import.meta.env.VITE_API_BASE_URL_PROD;
+  } else {
+    // Default dynamic switching based on environment build target
+    url = isDev
+      ? import.meta.env.VITE_API_BASE_URL_LOCAL
+      : import.meta.env.VITE_API_BASE_URL_PROD;
+  }
+
+  // Security measure: Ensure valid HTTPS in production environment
+  try {
+    const parsedUrl = new URL(url);
+    if (import.meta.env.PROD && parsedUrl.protocol !== 'https:') {
+      console.warn('Security Warning: Production API base URL must use HTTPS. Falling back to default secure endpoint.');
+      return import.meta.env.VITE_API_BASE_URL_PROD;
+    }
+    return parsedUrl.toString().replace(/\/$/, ''); // Remove trailing slash if present
+  } catch (e) {
+    console.error('Invalid API_BASE_URL provided in environment. Falling back to default.', e);
+    return isDev
+      ? import.meta.env.VITE_API_BASE_URL_LOCAL
+      : import.meta.env.VITE_API_BASE_URL_PROD;
+  }
+};
+
+export const API_BASE_URL = getApiBaseUrl();
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// Request interceptor to attach access token securely
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      // Basic token validation (ensure string format and prevent header injection)
+      if (typeof token === 'string' && /^[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$/.test(token)) {
+        config.headers.Authorization = `Bearer ${token}`;
+      } else {
+        // Clear corrupt token
+        localStorage.removeItem('accessToken');
+      }
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor to handle 401 & 403 errors with automatic refresh token logic
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // If 401/403 and token expired, attempt refresh once
+    if (
+      error.response &&
+      (error.response.status === 401 || error.response.status === 403) &&
+      !originalRequest._retry
+    ) {
+      originalRequest._retry = true;
+      const refreshToken = localStorage.getItem('refreshToken');
+
+      if (refreshToken) {
+        try {
+          const res = await axios.post(`${API_BASE_URL}/users/refresh-token`, {
+            refreshToken
+          });
+
+          const { accessToken, refreshToken: newRefreshToken } = res.data;
+          localStorage.setItem('accessToken', accessToken);
+          localStorage.setItem('refreshToken', newRefreshToken);
+
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          return api(originalRequest);
+        } catch (refreshErr) {
+          // Refresh token failed -> clear storage and trigger logout securely
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
+          window.location.reload();
+          return Promise.reject(refreshErr);
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+
