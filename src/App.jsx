@@ -9,6 +9,7 @@ import NotificationBanner from './components/NotificationBanner';
 import PatientsManagementTab from './components/PatientsManagementTab';
 import QueueManagementTab from './components/QueueManagementTab';
 import DoctorFinanceTab from './components/DoctorFinanceTab';
+import UserManagementTab from './components/UserManagementTab';
 import {
   Stethoscope,
   ClipboardList,
@@ -20,8 +21,10 @@ import {
   Clock,
   UserCheck,
   CheckCircle2,
-  TrendingUp
+  TrendingUp,
+  ShieldCheck
 } from 'lucide-react';
+
 
 import './App.css';
 
@@ -303,14 +306,23 @@ function App() {
             )}
           </button>
           {user.role === 'doctor' && (
-            <button
-              className={`nav-tab-btn ${activeTab === 'finance' ? 'active' : ''}`}
-              onClick={() => setActiveTab('finance')}
-            >
-              <TrendingUp size={18} /> Finances & Dépenses
-            </button>
+            <>
+              <button
+                className={`nav-tab-btn ${activeTab === 'finance' ? 'active' : ''}`}
+                onClick={() => setActiveTab('finance')}
+              >
+                <TrendingUp size={18} /> Finances & Dépenses
+              </button>
+              <button
+                className={`nav-tab-btn ${activeTab === 'users' ? 'active' : ''}`}
+                onClick={() => setActiveTab('users')}
+              >
+                <ShieldCheck size={18} /> Utilisateurs
+              </button>
+            </>
           )}
         </div>
+
 
 
         <div className="header-user">
@@ -408,7 +420,13 @@ function App() {
         {activeTab === 'finance' && user.role === 'doctor' && (
           <DoctorFinanceTab user={user} />
         )}
+
+        {/* Tab 4: Users & Secretary Management (Doctor Only) */}
+        {activeTab === 'users' && user.role === 'doctor' && (
+          <UserManagementTab currentUser={user} />
+        )}
       </main>
+
 
 
       {/* Consultation & Fiche Form Modal */}
