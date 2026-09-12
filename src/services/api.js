@@ -2,19 +2,19 @@ import axios from 'axios';
 
 // Helper function to safely get and validate the API Base URL
 const getApiBaseUrl = () => {
-  const envMode = import.meta.env.VITE_API_MODE;
+  const envMode = import.meta.env.API_MODE;
   const isDev = import.meta.env.DEV;
 
   let url;
   if (envMode === 'local') {
-    url = import.meta.env.VITE_API_BASE_URL_LOCAL;
+    url = import.meta.env.API_BASE_URL_LOCAL;
   } else if (envMode === 'prod') {
-    url = import.meta.env.VITE_API_BASE_URL_PROD;
+    url = import.meta.env.API_BASE_URL_PROD;
   } else {
     // Default dynamic switching based on environment build target
     url = isDev
-      ? import.meta.env.VITE_API_BASE_URL_LOCAL
-      : import.meta.env.VITE_API_BASE_URL_PROD;
+      ? import.meta.env.API_BASE_URL_LOCAL
+      : import.meta.env.API_BASE_URL_PROD;
   }
 
   // Security measure: Ensure valid HTTPS in production environment
@@ -22,14 +22,14 @@ const getApiBaseUrl = () => {
     const parsedUrl = new URL(url);
     if (import.meta.env.PROD && parsedUrl.protocol !== 'https:') {
       console.warn('Security Warning: Production API base URL must use HTTPS. Falling back to default secure endpoint.');
-      return import.meta.env.VITE_API_BASE_URL_PROD;
+      return import.meta.env.API_BASE_URL_PROD;
     }
     return parsedUrl.toString().replace(/\/$/, ''); // Remove trailing slash if present
   } catch (e) {
     console.error('Invalid API_BASE_URL provided in environment. Falling back to default.', e);
     return isDev
-      ? import.meta.env.VITE_API_BASE_URL_LOCAL
-      : import.meta.env.VITE_API_BASE_URL_PROD;
+      ? import.meta.env.API_BASE_URL_LOCAL
+      : import.meta.env.API_BASE_URL_PROD;
   }
 };
 
