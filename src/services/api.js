@@ -2,14 +2,11 @@ import axios from 'axios';
 
 // Helper function to safely get and validate the API Base URL
 const getApiBaseUrl = () => {
-  const envMode = import.meta.env.VITE_API_MODE || import.meta.env.API_MODE;
+  const envMode =import.meta.env.API_MODE;
   const isDev = import.meta.env.DEV;
 
-  const defaultLocal = 'http://localhost:3000/api';
-  const defaultProd = 'https://dental-cabinet-backend.vercel.app/api';
-
-  const localUrl = import.meta.env.VITE_API_BASE_URL_LOCAL || import.meta.env.API_BASE_URL_LOCAL || defaultLocal;
-  const prodUrl = import.meta.env.VITE_API_BASE_URL_PROD || import.meta.env.API_BASE_URL_PROD || defaultProd;
+  const localUrl =  import.meta.env.API_BASE_URL_LOCAL;
+  const prodUrl =  import.meta.env.API_BASE_URL_PROD;
 
   let targetUrl;
   if (envMode === 'local') {
@@ -22,26 +19,26 @@ const getApiBaseUrl = () => {
   }
 
   // Ensure string format and fallback if empty/undefined
-  const finalString = String(targetUrl || (isDev ? defaultLocal : defaultProd)).trim();
+  const finalString = String(targetUrl || (isDev ? localUrl : prodUrl)).trim();
 
   // Security measure: Ensure valid URL structure & HTTPS in production
   try {
     const parsedUrl = new URL(finalString);
     if (import.meta.env.PROD && parsedUrl.protocol !== 'https:') {
       console.warn('Security Warning: Production API base URL must use HTTPS. Falling back to default secure endpoint.');
-      return defaultProd;
+      return prodUrl;
     }
     return parsedUrl.toString().replace(/\/$/, '');
   } catch (e) {
     console.error('Invalid API_BASE_URL provided in environment. Falling back to default.', e);
-    return isDev ? defaultLocal : defaultProd;
+    return isDev ? localUrl : prodUrl;
   }
 };
 
-export const API_BASE_URL = getApiBaseUrl() || 'https://dental-cabinet-backend.vercel.app/api';
+export const API_BASE_URL = getApiBaseUrl();
 
 // Socket server URL (base domain without /api path)
-export const SOCKET_URL = (API_BASE_URL || '').replace(/\/api\/?$/, '') || 'https://dental-cabinet-backend.vercel.app';
+export const SOCKET_URL = import.meta.env.API_SOCK_BASE_URL;
 
 
 const api = axios.create({
