@@ -6,7 +6,7 @@ export const API_BASE_URL = '/api';
 
 
 // Socket server URL (base domain without /api path)
-export const SOCKET_URL = import.meta.env.API_SOCK_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3000' : 'https://dental-cabinet-backend.vercel.app');
+export const SOCKET_URL = import.meta.env.API_SOCK_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3000' : import.meta.env.API_BASE_URL_PROD);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
