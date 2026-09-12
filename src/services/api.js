@@ -6,7 +6,7 @@ export const API_BASE_URL = '/api';
 
 
 // Socket server URL (base domain without /api path)
-export const SOCKET_URL = import.meta.env.API_SOCK_BASE_URL || (import.meta.env.DEV ? 'http://localhost:3000' : import.meta.env.API_BASE_URL_PROD);
+export const SOCKET_URL = import.meta.env.API_SOCK_BASE_URL;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
