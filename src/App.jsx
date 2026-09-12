@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import api from './services/api';
+import api, { SOCKET_URL } from './services/api';
+
 import AuthModal from './components/AuthModal';
 import PatientFormModal from './components/PatientFormModal';
 import EditProfileModal from './components/EditProfileModal';
@@ -47,11 +48,17 @@ function App() {
 
   // Socket Connection setup
   useEffect(() => {
-    const newSocket = io('http://localhost:3000');
+    // Connect to dynamic socket URL matching the current environment
+    const newSocket = io(SOCKET_URL || 'http://localhost:3000', {
+      transports: ['polling', 'websocket'],
+      autoConnect: true,
+      reconnectionAttempts: 5
+    });
     setSocket(newSocket);
 
     return () => newSocket.close();
   }, []);
+
 
   // Fetch patient list
   const fetchPatients = async () => {

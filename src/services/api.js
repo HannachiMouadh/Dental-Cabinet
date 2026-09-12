@@ -2,38 +2,45 @@ import axios from 'axios';
 
 // Helper function to safely get and validate the API Base URL
 const getApiBaseUrl = () => {
-  const envMode = import.meta.env.API_MODE;
+  const envMode = import.meta.env.VITE_API_MODE || import.meta.env.API_MODE;
   const isDev = import.meta.env.DEV;
 
-  let url;
+  const localUrl = import.meta.env.VITE_API_BASE_URL_LOCAL || import.meta.env.API_BASE_URL_LOCAL || 'http://localhost:3000/api';
+  const prodUrl = import.meta.env.VITE_API_BASE_URL_PROD || import.meta.env.API_BASE_URL_PROD || 'https://dental-cabinet-backend.vercel.app/api';
+
+  let rawUrl;
   if (envMode === 'local') {
-    url = import.meta.env.API_BASE_URL_LOCAL;
+    rawUrl = localUrl;
   } else if (envMode === 'prod') {
-    url = import.meta.env.API_BASE_URL_PROD;
+    rawUrl = prodUrl;
   } else {
     // Default dynamic switching based on environment build target
-    url = isDev
-      ? import.meta.env.API_BASE_URL_LOCAL
-      : import.meta.env.API_BASE_URL_PROD;
+    rawUrl = isDev ? localUrl : prodUrl;
   }
 
-  // Security measure: Ensure valid HTTPS in production environment
+  // Ensure rawUrl is always a string
+  const urlString = String(rawUrl || (isDev ? 'http://localhost:3000/api' : 'https://dental-cabinet-backend.vercel.app/api')).trim();
+
+  // Security measure: Ensure valid URL structure & HTTPS in production
   try {
-    const parsedUrl = new URL(url);
+    const parsedUrl = new URL(urlString);
     if (import.meta.env.PROD && parsedUrl.protocol !== 'https:') {
       console.warn('Security Warning: Production API base URL must use HTTPS. Falling back to default secure endpoint.');
-      return import.meta.env.API_BASE_URL_PROD;
+      return 'https://dental-cabinet-backend.vercel.app/api';
     }
-    return parsedUrl.toString().replace(/\/$/, ''); // Remove trailing slash if present
+    return parsedUrl.toString().replace(/\/$/, '');
   } catch (e) {
     console.error('Invalid API_BASE_URL provided in environment. Falling back to default.', e);
     return isDev
-      ? import.meta.env.API_BASE_URL_LOCAL
-      : import.meta.env.API_BASE_URL_PROD;
+      ? 'http://localhost:3000/api'
+      : 'https://dental-cabinet-backend.vercel.app/api';
   }
 };
 
 export const API_BASE_URL = getApiBaseUrl();
+
+// Socket server URL (base domain without /api path)
+export const SOCKET_URL = API_BASE_URL.replace(/\/api\/?$/, '');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -102,4 +109,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-
